@@ -23,9 +23,8 @@ package controllers
 import (
 	"context"
 	"path/filepath"
-	"testing"
-
 	ctrl "sigs.k8s.io/controller-runtime"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

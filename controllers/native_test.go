@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -11,6 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+	"time"
 	cronjobv1 "tutorial.kubebuilder.io/project/api/v1"
 )
 
@@ -21,9 +23,13 @@ const (
 )
 
 func TestCronJobReconciler_Reconcile(t *testing.T) {
+	mockClient := &mockClient1{
+		//Client: k8sClient,
+	}
 	r := &CronJobReconciler{
-		Client: k8sClient,
+		Client: mockClient,
 		Scheme: scheme.Scheme,
+		Clock:  mockClock{},
 	}
 	//ctx := context.Background()
 
@@ -40,7 +46,8 @@ func TestCronJobReconciler_Reconcile(t *testing.T) {
 
 }
 
-func (r *CronJobReconciler) Get(ctx context.Context, name types.NamespacedName, cronjob *cronjobv1.CronJob) error {
+func (m *mockClient1) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	cronjob := obj.(*cronjobv1.CronJob)
 	cronjob.TypeMeta = metav1.TypeMeta{
 		APIVersion: "batch.tutorial.kubebuilder.io/v1",
 		Kind:       "CronJob",
@@ -72,7 +79,8 @@ func (r *CronJobReconciler) Get(ctx context.Context, name types.NamespacedName, 
 	return nil
 }
 
-func (r *CronJobReconciler) List(ctx context.Context, childJobs *batchv1.JobList, namespace client.InNamespace, fields client.MatchingFields) error {
+func (m *mockClient1) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	childJobs := list.(*batchv1.JobList)
 	testJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      JobName,
@@ -99,5 +107,78 @@ func (r *CronJobReconciler) List(ctx context.Context, childJobs *batchv1.JobList
 	var Items []batchv1.Job = []batchv1.Job{*testJob}
 	childJobs.Items = Items
 
+	return nil
+}
+
+type mockClient1 struct {
+	client.Client
+}
+
+//func (m *mockClient1) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) Scheme() *runtime.Scheme {
+//	//TODO implement me
+//	panic("implement me")
+//}
+//
+//func (m *mockClient1) RESTMapper() meta.RESTMapper {
+//	//TODO implement me
+//	panic("implement me")
+//}
+
+type mockStatusWriter struct {
+}
+
+type mockClock struct{}
+
+func (_ mockClock) Now() time.Time {
+	fmt.Println("hello")
+	return time.Now()
+}
+
+func (m *mockClient1) Status() client.StatusWriter {
+	fmt.Println("here")
+	return &mockStatusWriter{}
+}
+
+func (m *mockStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	fmt.Println("there")
+	return nil
+}
+
+func (m *mockStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	return nil
 }

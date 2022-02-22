@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -24,7 +25,8 @@ const (
 
 func TestCronJobReconciler_Reconcile(t *testing.T) {
 	mockClient := &mockClient1{
-		//Client: k8sClient,
+		Client:  k8sClient,
+		errBool: false,
 	}
 	r := &CronJobReconciler{
 		Client: mockClient,
@@ -33,20 +35,50 @@ func TestCronJobReconciler_Reconcile(t *testing.T) {
 	}
 	//ctx := context.Background()
 
-	ctlResult, _ := r.Reconcile(context.TODO(), ctrl.Request{
+	ctlResult, err := r.Reconcile(context.TODO(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "cluster",
 			Namespace: "namespace",
 		},
 	})
 
-	if (ctlResult == ctrl.Result{}) {
+	if err != nil {
+		t.Fatalf("fail")
+	}
+	if (ctlResult != ctrl.Result{}) {
 		t.Fatalf("fail")
 	}
 
 }
 
+func TestCronJobReconciler_Reconcile_WithGetError(t *testing.T) {
+	mockClient := &mockClient1{
+		Client:  k8sClient,
+		errBool: true,
+	}
+	r := &CronJobReconciler{
+		Client: mockClient,
+		Scheme: scheme.Scheme,
+		Clock:  mockClock{},
+	}
+	//ctx := context.Background()
+
+	_, err := r.Reconcile(context.TODO(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "cluster",
+			Namespace: "namespace",
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("fail")
+	}
+}
+
 func (m *mockClient1) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	if m.errBool {
+		return errors.New("unable to fetch CronJob")
+	}
 	cronjob := obj.(*cronjobv1.CronJob)
 	cronjob.TypeMeta = metav1.TypeMeta{
 		APIVersion: "batch.tutorial.kubebuilder.io/v1",
@@ -112,6 +144,7 @@ func (m *mockClient1) List(ctx context.Context, list client.ObjectList, opts ...
 
 type mockClient1 struct {
 	client.Client
+	errBool bool
 }
 
 //func (m *mockClient1) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
